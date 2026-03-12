@@ -889,7 +889,7 @@ async function connectOneDrive() {
   });
 
   // Full page redirect — works in Teams iframe
-  window.location.href = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params}`;
+  window.location.href = `https://login.microsoftonline.com/325c40be-6d2b-4006-b2c5-078947c856d2/oauth2/v2.0/authorize?${params}`;
 }
 
 async function handleAuthCallback() {
@@ -920,7 +920,7 @@ async function handleAuthCallback() {
     showLoading('กำลัง Login...');
 
     try {
-      const tokenResp = await fetch(`https://login.microsoftonline.com/common/oauth2/v2.0/token`, {
+      const tokenResp = await fetch(`https://login.microsoftonline.com/325c40be-6d2b-4006-b2c5-078947c856d2/oauth2/v2.0/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
@@ -976,7 +976,7 @@ async function refreshAccessToken() {
   const refreshToken = sessionStorage.getItem('refresh_token');
   if (!refreshToken) { showSetup(); return; }
   try {
-    const resp = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+    const resp = await fetch('https://login.microsoftonline.com/325c40be-6d2b-4006-b2c5-078947c856d2/oauth2/v2.0/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
