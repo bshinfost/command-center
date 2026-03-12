@@ -1,0 +1,1634 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radio Monitor — Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep:    #040d14;
+    --bg-panel:   #071522;
+    --bg-card:    #0a1e30;
+    --bg-card2:   #0d2438;
+    --accent:     #00d4ff;
+    --accent2:    #00ff9d;
+    --warn:       #ffb800;
+    --danger:     #ff4444;
+    --text-main:  #d0eaf8;
+    --text-dim:   #5e8aa8;
+    --border:     #0e3050;
+    --border-glow:#0a4a7a;
+    --grid-line:  rgba(0,212,255,0.06);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg-deep);
+    color: var(--text-main);
+    font-family: 'Sarabun', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scan-line overlay */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0px, transparent 3px,
+      rgba(0,0,0,0.08) 3px, rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ─── HEADER ─────────────────────────────────── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 28px;
+    background: linear-gradient(to right, #040d14, #071a2e, #040d14);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+
+  .logo-block { display: flex; align-items: center; gap: 14px; }
+
+  .logo-icon {
+    width: 42px; height: 42px;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    box-shadow: 0 0 16px rgba(0,212,255,0.4);
+    animation: pulse-ring 3s infinite;
+  }
+  .logo-icon::after {
+    content: '';
+    position: absolute;
+    width: 10px; height: 10px;
+    background: var(--accent2);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--accent2);
+    animation: blink 1.2s infinite;
+  }
+  @keyframes pulse-ring {
+    0%, 100% { box-shadow: 0 0 10px rgba(0,212,255,0.3); }
+    50% { box-shadow: 0 0 22px rgba(0,212,255,0.7), 0 0 40px rgba(0,212,255,0.2); }
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  .logo-text h1 { font-size: 1.25rem; font-weight: 700; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; }
+  .logo-text p  { font-size: 0.72rem; color: var(--text-dim); letter-spacing: 1px; }
+
+  .header-right { display: flex; align-items: center; gap: 24px; }
+
+  #clock {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.5rem;
+    color: var(--accent2);
+    letter-spacing: 3px;
+    text-shadow: 0 0 12px rgba(0,255,157,0.5);
+  }
+  #date-str { font-size: 0.72rem; color: var(--text-dim); text-align: right; margin-top: 2px; }
+
+  .status-pill {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 0.72rem;
+    background: rgba(0,212,255,0.05);
+  }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent2);
+    box-shadow: 0 0 6px var(--accent2);
+    animation: blink 2s infinite;
+  }
+  .status-dot.error { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+  .status-dot.warn  { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+
+  /* Auth Setup Panel */
+  #setup-panel {
+    max-width: 680px; margin: 60px auto; padding: 40px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  #setup-panel h2 { color: var(--accent); margin-bottom: 24px; font-size: 1.1rem; letter-spacing: 1px; }
+  #setup-panel p  { color: var(--text-dim); font-size: 0.85rem; line-height: 1.7; margin-bottom: 16px; }
+  .field-group { margin-bottom: 16px; }
+  .field-group label { display: block; font-size: 0.78rem; color: var(--text-dim); margin-bottom: 6px; }
+  .field-group input, .field-group select {
+    width: 100%; padding: 10px 14px;
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-main);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .field-group input:focus, .field-group select:focus { border-color: var(--accent); }
+
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 11px 24px;
+    background: linear-gradient(135deg, #006b9a, #009acc);
+    border: none; border-radius: 6px;
+    color: #fff; font-weight: 600; font-size: 0.85rem;
+    cursor: pointer; transition: all 0.2s;
+    font-family: 'Sarabun', sans-serif;
+  }
+  .btn-primary:hover { background: linear-gradient(135deg, #0086be, #00b8f0); box-shadow: 0 0 16px rgba(0,180,240,0.3); }
+
+  .btn-demo {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 11px 24px;
+    background: transparent;
+    border: 1px solid var(--border-glow); border-radius: 6px;
+    color: var(--text-dim); font-size: 0.85rem;
+    cursor: pointer; transition: all 0.2s;
+    font-family: 'Sarabun', sans-serif;
+    margin-left: 12px;
+  }
+  .btn-demo:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  .info-box {
+    background: rgba(0,212,255,0.06);
+    border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 8px; padding: 14px 18px;
+    font-size: 0.78rem; color: var(--text-dim);
+    line-height: 1.8; margin-top: 20px;
+  }
+  .info-box code {
+    background: rgba(0,212,255,0.1); padding: 1px 6px; border-radius: 3px;
+    font-family: 'Share Tech Mono', monospace; color: var(--accent);
+  }
+
+  /* ─── MAIN LAYOUT ─────────────────────────────── */
+  #dashboard { display: none; padding: 20px 24px; }
+
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .kpi-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(to right, transparent, var(--accent), transparent);
+    opacity: 0.5;
+  }
+  .kpi-card:hover { border-color: var(--border-glow); }
+
+  .kpi-label {
+    font-size: 0.68rem; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .kpi-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 2rem; font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+    text-shadow: 0 0 20px rgba(0,212,255,0.4);
+  }
+  .kpi-sub { font-size: 0.7rem; color: var(--text-dim); margin-top: 4px; }
+  .kpi-card.green .kpi-value { color: var(--accent2); text-shadow: 0 0 20px rgba(0,255,157,0.4); }
+  .kpi-card.green::before { background: linear-gradient(to right, transparent, var(--accent2), transparent); }
+  .kpi-card.warn .kpi-value  { color: var(--warn); text-shadow: 0 0 20px rgba(255,184,0,0.4); }
+  .kpi-card.warn::before  { background: linear-gradient(to right, transparent, var(--warn), transparent); }
+  .kpi-card.danger .kpi-value { color: var(--danger); text-shadow: 0 0 20px rgba(255,68,68,0.4); }
+  .kpi-card.danger::before  { background: linear-gradient(to right, transparent, var(--danger), transparent); }
+
+  /* Main grid */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    grid-template-rows: auto auto;
+    gap: 16px;
+  }
+
+  .panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 18px;
+    background: var(--bg-card2);
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-title {
+    font-size: 0.78rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--accent);
+  }
+  .panel-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem; color: var(--text-dim);
+    background: rgba(0,212,255,0.08);
+    padding: 2px 10px; border-radius: 10px;
+  }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; max-height: 460px; overflow-y: auto; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  .data-table thead { position: sticky; top: 0; z-index: 2; }
+  .data-table th {
+    background: var(--bg-card2);
+    color: var(--text-dim); font-weight: 600;
+    padding: 9px 12px; text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    font-size: 0.72rem; letter-spacing: 0.5px;
+  }
+  .data-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--grid-line);
+    white-space: nowrap;
+    color: var(--text-main);
+  }
+  .data-table tr:hover td { background: rgba(0,212,255,0.04); }
+
+  /* Status badge */
+  .badge {
+    display: inline-block; padding: 2px 9px;
+    border-radius: 10px; font-size: 0.7rem; font-weight: 600;
+  }
+  .badge-active  { background: rgba(0,255,157,0.12); color: var(--accent2); border: 1px solid rgba(0,255,157,0.25); }
+  .badge-done    { background: rgba(0,212,255,0.1);  color: var(--accent);  border: 1px solid rgba(0,212,255,0.2);  }
+  .badge-closed  { background: rgba(94,138,168,0.1); color: var(--text-dim); border: 1px solid rgba(94,138,168,0.2); }
+  .badge-warn    { background: rgba(255,184,0,0.12); color: var(--warn);    border: 1px solid rgba(255,184,0,0.25); }
+  .badge-danger  { background: rgba(255,68,68,0.12); color: var(--danger);  border: 1px solid rgba(255,68,68,0.25); }
+
+  /* Right column */
+  .side-panels { display: flex; flex-direction: column; gap: 16px; }
+
+  .bar-chart { padding: 14px 16px; }
+  .bar-item  { margin-bottom: 10px; }
+  .bar-label { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-dim); margin-bottom: 4px; }
+  .bar-label span:last-child { color: var(--text-main); font-weight: 600; }
+  .bar-track {
+    height: 6px; background: var(--bg-deep);
+    border-radius: 3px; overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(to right, #006b9a, var(--accent));
+    transition: width 1s cubic-bezier(0.4,0,0.2,1);
+  }
+  .bar-fill.green { background: linear-gradient(to right, #006b4e, var(--accent2)); }
+  .bar-fill.warn  { background: linear-gradient(to right, #7a5a00, var(--warn)); }
+
+  /* Second row */
+  .bottom-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  /* Pie-like donut */
+  .donut-wrap { padding: 16px; display: flex; flex-direction: column; align-items: center; }
+  .donut-svg  { width: 130px; height: 130px; }
+  .donut-legend { width: 100%; margin-top: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; color: var(--text-dim); margin-bottom: 6px; }
+  .legend-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* Refresh bar */
+  #refresh-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: 3px; background: var(--bg-panel);
+    z-index: 200;
+  }
+  #refresh-progress {
+    height: 100%;
+    background: linear-gradient(to right, var(--accent2), var(--accent));
+    width: 0%; transition: width 0.5s linear;
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  /* Loading spinner */
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #loading-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(4,13,20,0.85);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+  }
+  #loading-overlay p { color: var(--text-dim); font-size: 0.85rem; }
+
+  #toast {
+    position: fixed; top: 70px; right: 24px; z-index: 600;
+    background: var(--bg-card2);
+    border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 18px;
+    font-size: 0.8rem; color: var(--text-main);
+    max-width: 320px;
+    transform: translateX(120%);
+    transition: transform 0.3s;
+  }
+  #toast.show { transform: translateX(0); }
+  #toast.success { border-color: var(--accent2); }
+  #toast.error   { border-color: var(--danger); }
+
+  .monospace { font-family: 'Share Tech Mono', monospace; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg-deep); }
+  ::-webkit-scrollbar-thumb { background: var(--border-glow); border-radius: 3px; }
+
+  @media (max-width: 1200px) {
+    .kpi-row { grid-template-columns: repeat(3, 1fr); }
+    .main-grid { grid-template-columns: 1fr; }
+    .bottom-row { grid-template-columns: 1fr; }
+    .amb-grid { grid-template-columns: 1fr !important; }
+  }
+
+  /* ─── TABS ─────────────────────────────────────────── */
+  .tab-nav {
+    display: flex; gap: 4px;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+    background: var(--bg-panel);
+  }
+  .tab-btn {
+    padding: 12px 22px;
+    font-family: 'Sarabun', sans-serif;
+    font-size: 0.82rem; font-weight: 600;
+    color: var(--text-dim);
+    background: transparent;
+    border: none; border-bottom: 2px solid transparent;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+    margin-bottom: -1px;
+  }
+  .tab-btn:hover { color: var(--text-main); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-page { display: none; }
+  .tab-page.active { display: block; }
+
+  /* ─── AMBULANCE SECTION ──────────────────────────── */
+  .amb-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px; margin-bottom: 20px;
+  }
+  .amb-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 16px; margin-bottom: 16px;
+  }
+  .amb-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .amb-card:hover { border-color: var(--border-glow); }
+
+  /* Ambulance status card */
+  .amb-status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px; padding: 16px;
+  }
+  .amb-unit-card {
+    background: var(--bg-card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 8px;
+    position: relative; overflow: hidden;
+    transition: all 0.3s;
+    cursor: default;
+  }
+  .amb-unit-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .amb-unit-card.ready::before { background: var(--accent2); }
+  .amb-unit-card.ma::before { background: var(--warn); }
+  .amb-unit-card.eos::before { background: var(--danger); }
+  .amb-unit-card:hover { border-color: var(--border-glow); transform: translateY(-2px); }
+
+  .amb-unit-img {
+    width: 80px; height: 52px; object-fit: contain;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.3);
+  }
+  .amb-unit-code {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.88rem; font-weight: 700;
+    color: var(--accent);
+  }
+  .amb-unit-status {
+    font-size: 0.68rem; font-weight: 700;
+    padding: 3px 10px; border-radius: 8px;
+  }
+  .status-ready { background: rgba(0,255,157,0.12); color: var(--accent2); border: 1px solid rgba(0,255,157,0.3); }
+  .status-ma    { background: rgba(255,184,0,0.12); color: var(--warn);    border: 1px solid rgba(255,184,0,0.3);    }
+  .status-eos   { background: rgba(255,68,68,0.12);  color: var(--danger);  border: 1px solid rgba(255,68,68,0.3);    }
+
+  .amb-unit-meta {
+    font-size: 0.68rem; color: var(--text-dim);
+    text-align: center; line-height: 1.5;
+  }
+  .amb-unit-cases {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.4rem; font-weight: 700;
+    color: var(--text-main);
+  }
+  .amb-unit-cases-label { font-size: 0.62rem; color: var(--text-dim); }
+
+  /* Job type bar */
+  .job-type-chart { padding: 14px 16px; }
+  .job-item { margin-bottom: 12px; }
+  .job-label { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px; }
+  .job-label span:first-child { color: var(--text-dim); }
+  .job-label span:last-child  { color: var(--text-main); font-weight: 600; font-family: 'Share Tech Mono', monospace; }
+  .job-track { height: 8px; background: var(--bg-deep); border-radius: 4px; overflow: hidden; }
+  .job-fill { height: 100%; border-radius: 4px; transition: width 1.2s cubic-bezier(0.4,0,0.2,1); }
+
+  /* Amb log table */
+  .amb-table-wrap { overflow-x: auto; max-height: 380px; overflow-y: auto; }
+  .amb-mileage-bar {
+    display: flex; align-items: center; gap: 8px; font-size: 0.72rem;
+  }
+  .mile-track {
+    flex: 1; height: 4px; background: var(--bg-deep);
+    border-radius: 2px; overflow: hidden; min-width: 40px;
+  }
+  .mile-fill { height: 100%; background: var(--accent); border-radius: 2px; opacity: 0.6; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-block">
+    <div class="logo-icon"></div>
+    <div class="logo-text">
+      <h1>Radio Monitor</h1>
+      <p>Command Center — Samui EMS</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div>
+      <div id="clock">--:--:--</div>
+      <div id="date-str">—</div>
+    </div>
+    <div class="status-pill" id="conn-status">
+      <div class="status-dot warn" id="conn-dot"></div>
+      <span id="conn-label">ยังไม่เชื่อมต่อ</span>
+    </div>
+    <button class="btn-primary" onclick="manualRefresh()" style="padding:7px 14px;font-size:0.78rem;" id="refresh-btn">
+      ↻ รีเฟรช
+    </button>
+    <button onclick="showSetup()" style="background:transparent;border:1px solid var(--border);padding:7px 14px;border-radius:6px;color:var(--text-dim);cursor:pointer;font-family:'Sarabun',sans-serif;font-size:0.78rem;">
+      ⚙ ตั้งค่า
+    </button>
+  </div>
+</header>
+
+<!-- Setup Panel -->
+<div id="setup-panel">
+  <h2>🔗 เชื่อมต่อ Microsoft Account</h2>
+  <p>Dashboard นี้ดึงข้อมูลจากไฟล์ Excel Online บน SharePoint ของคุณโดยตรง<br>
+  ข้อมูลจะอัปเดตอัตโนมัติทุก <strong style="color:var(--accent)">5 นาที</strong></p>
+
+  <div class="info-box" style="margin: 20px 0;">
+    <strong style="color:var(--accent);">📁 ไฟล์ที่เชื่อมต่อ:</strong><br><br>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="color:var(--accent2);font-size:1rem;">📋</span>
+        <div>
+          <div style="color:var(--text-main);font-weight:600;font-size:0.82rem;">Radio Monitor (EMS)</div>
+          <div style="color:var(--text-dim);font-size:0.72rem;font-family:'Share Tech Mono',monospace;">Command Center / Radio_Monitor.xlsx</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="color:var(--warn);font-size:1rem;">🚑</span>
+        <div>
+          <div style="color:var(--text-main);font-weight:600;font-size:0.82rem;">Ambulance Fleet</div>
+          <div style="color:var(--text-dim);font-size:0.72rem;font-family:'Share Tech Mono',monospace;">Command Center / Ambulance.xlsx</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="field-group">
+    <label>Refresh ทุก (นาที)</label>
+    <select id="refresh-interval">
+      <option value="1">1 นาที</option>
+      <option value="5" selected>5 นาที</option>
+      <option value="10">10 นาที</option>
+      <option value="15">15 นาที</option>
+    </select>
+  </div>
+
+  <div style="margin-top:24px;">
+    <button class="btn-primary" onclick="connectOneDrive()">🔗 เชื่อมต่อ Microsoft Account</button>
+    <button class="btn-demo" onclick="loadDemoData()">📊 ใช้ข้อมูลตัวอย่าง (Demo)</button>
+  </div>
+
+  <div class="info-box" style="margin-top:16px;">
+    <strong style="color:var(--warn);">หมายเหตุ:</strong> ต้องลงทะเบียน App บน <code>Azure AD</code> และใส่ <code>Client ID</code> ในไฟล์ก่อนใช้งานจริง<br>
+    <span style="font-size:0.72rem;opacity:0.7;">สำหรับการ demo ให้กด "ใช้ข้อมูลตัวอย่าง" เพื่อเห็น Dashboard ทำงาน</span>
+  </div>
+</div>
+
+<!-- Tab Navigation -->
+<div class="tab-nav" id="tab-nav" style="display:none;">
+  <button class="tab-btn active" onclick="switchTab('tab-ems')">📋 EMS / Radio Monitor</button>
+  <button class="tab-btn" onclick="switchTab('tab-amb')">🚑 Fleet / รถพยาบาล</button>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard">
+
+<!-- ═══ TAB: EMS ═══════════════════════════════════════ -->
+<div id="tab-ems" class="tab-page active">
+  <!-- KPI Row -->
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-label">เคสทั้งหมดวันนี้</div>
+      <div class="kpi-value" id="kpi-today">—</div>
+      <div class="kpi-sub">เคส</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">ถึงโรงพยาบาลแล้ว</div>
+      <div class="kpi-value" id="kpi-delivered">—</div>
+      <div class="kpi-sub">เคส</div>
+    </div>
+    <div class="kpi-card warn">
+      <div class="kpi-label">กำลังดำเนินการ</div>
+      <div class="kpi-value" id="kpi-active">—</div>
+      <div class="kpi-sub">เคส</div>
+    </div>
+    <div class="kpi-card danger">
+      <div class="kpi-label">อุบัติเหตุ/จราจร</div>
+      <div class="kpi-value" id="kpi-accident">—</div>
+      <div class="kpi-sub">เคส</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">ผู้บาดเจ็บทั้งหมด</div>
+      <div class="kpi-value" id="kpi-injured">—</div>
+      <div class="kpi-sub">คน</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">เคสเดือนนี้</div>
+      <div class="kpi-value" id="kpi-month">—</div>
+      <div class="kpi-sub">เคส</div>
+    </div>
+  </div>
+
+  <!-- Main grid -->
+  <div class="main-grid">
+    <!-- Left: Recent Cases Table -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">📋 รายการเคสล่าสุด</span>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <input type="text" id="search-box" placeholder="ค้นหา..." onkeyup="filterTable()"
+            style="background:var(--bg-deep);border:1px solid var(--border);border-radius:5px;padding:5px 10px;color:var(--text-main);font-size:0.75rem;outline:none;width:180px;">
+          <span class="panel-badge" id="table-count">0 รายการ</span>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="main-table">
+          <thead>
+            <tr>
+              <th>วัน-เวลา</th>
+              <th>Amb Code</th>
+              <th>รับแจ้ง</th>
+              <th>สถานที่</th>
+              <th>หน่วยงาน</th>
+              <th>นำส่ง รพ.</th>
+              <th>ประเภท</th>
+              <th>สถานะ</th>
+              <th>เจ้าหน้าที่</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Right: Side Panels -->
+    <div class="side-panels">
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">🏥 หน่วยงาน</span>
+        </div>
+        <div class="bar-chart" id="unit-chart"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">🏨 นำส่ง รพ.</span>
+        </div>
+        <div class="bar-chart" id="hosp-chart"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Row -->
+  <div class="bottom-row">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">📊 ประเภทผู้ป่วย</span>
+      </div>
+      <div class="donut-wrap" id="type-donut"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">📈 เคสรายชั่วโมง (วันนี้)</span>
+      </div>
+      <div style="padding:16px;" id="hour-chart"></div>
+    </div>
+  </div>
+</div><!-- end tab-ems -->
+
+<!-- ═══ TAB: FLEET ════════════════════════════════════ -->
+<div id="tab-amb" class="tab-page">
+
+  <!-- Fleet KPI Row -->
+  <div class="amb-kpi-row">
+    <div class="kpi-card green">
+      <div class="kpi-label">พร้อมปฏิบัติการ</div>
+      <div class="kpi-value" id="amb-kpi-ready">—</div>
+      <div class="kpi-sub">คัน</div>
+    </div>
+    <div class="kpi-card warn">
+      <div class="kpi-label">ซ่อมบำรุง (MA)</div>
+      <div class="kpi-value" id="amb-kpi-ma">—</div>
+      <div class="kpi-sub">คัน</div>
+    </div>
+    <div class="kpi-card danger">
+      <div class="kpi-label">หมดอายุ (EOS)</div>
+      <div class="kpi-value" id="amb-kpi-eos">—</div>
+      <div class="kpi-sub">คัน</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">เคสรถทั้งหมดวันนี้</div>
+      <div class="kpi-value" id="amb-kpi-today">—</div>
+      <div class="kpi-sub">เคส</div>
+    </div>
+  </div>
+
+  <!-- Main fleet grid -->
+  <div class="amb-grid">
+
+    <!-- Left: Ambulance status cards -->
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-header">
+          <span class="panel-title">🚑 สถานะรถพยาบาล</span>
+          <span class="panel-badge" id="fleet-updated">—</span>
+        </div>
+        <div class="amb-status-grid" id="amb-status-grid">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Recent ambulance log table -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">📋 บันทึกการออกปฏิบัติงาน</span>
+          <span class="panel-badge" id="amb-log-count">—</span>
+        </div>
+        <div class="amb-table-wrap">
+          <table class="data-table" id="amb-log-table">
+            <thead>
+              <tr>
+                <th>วันที่</th>
+                <th>รถ</th>
+                <th>พลขับ</th>
+                <th>ประเภทงาน</th>
+                <th>สถานที่</th>
+                <th>เวลาออก</th>
+                <th>ระยะทาง (กม.)</th>
+                <th>เจ้าหน้าที่</th>
+              </tr>
+            </thead>
+            <tbody id="amb-log-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Charts -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+
+      <!-- Cases per vehicle -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">📊 เคสต่อรถ (วันนี้)</span>
+        </div>
+        <div class="bar-chart" id="amb-cases-chart"></div>
+      </div>
+
+      <!-- Job type donut -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">🗂 ประเภทงาน (วันนี้)</span>
+        </div>
+        <div class="job-type-chart" id="amb-job-chart"></div>
+      </div>
+
+      <!-- Monthly cases per vehicle -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">📈 เคสรถ (เดือนนี้)</span>
+        </div>
+        <div class="bar-chart" id="amb-month-chart"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end tab-amb -->
+
+</div><!-- end dashboard -->
+
+<!-- Loading -->
+<div id="loading-overlay" style="display:none;">
+  <div class="spinner"></div>
+  <p id="loading-msg">กำลังโหลดข้อมูล...</p>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Refresh progress bar -->
+<div id="refresh-bar"><div id="refresh-progress"></div></div>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────
+// Fill in your Azure App Registration Client ID here:
+const AZURE_CLIENT_ID = '55ee20c8-b52f-4ba9-b641-0c3b3722afa8';
+const REDIRECT_URI = 'https://bshinfost.github.io/command-center/';
+const SCOPES = ['Files.Read', 'Files.Read.All', 'User.Read'];
+
+// ── Hardcoded file URLs (no setup needed) ──
+const WB_URL_EMS = 'https://bdmsgroup-my.sharepoint.com/personal/bshinfo_st_bdms_co_th/Documents/Command%20Center/Radio_Monitor.xlsx';
+const WB_URL_AMB = 'https://bdmsgroup-my.sharepoint.com/personal/bshinfo_st_bdms_co_th/Documents/Command%20Center/Ambulance.xlsx';
+const SHEET_NAME_EMS = 'Data Input';
+const SHEET_NAME_AMB = 'Data Input';
+
+let accessToken = null;
+let refreshInterval = 5; // minutes
+let progressTimer = null;
+let countdownVal = 0;
+let allRows = [];
+let filteredRows = [];
+let isDemo = false;
+
+// ─── CLOCK ────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  document.getElementById('clock').textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  const days = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+  const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  document.getElementById('date-str').textContent = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear() + 543}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── SETUP ────────────────────────────────────────────
+function showSetup() {
+  document.getElementById('setup-panel').style.display = 'block';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('tab-nav').style.display = 'none';
+}
+
+// ─── MICROSOFT AUTH (PKCE Authorization Code Flow) ───
+// Works inside Teams iframe — no popup required
+
+async function sha256(plain) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(plain);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return digest;
+}
+
+function base64urlEncode(buffer) {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function generateRandom(len = 64) {
+  const arr = new Uint8Array(len);
+  crypto.getRandomValues(arr);
+  return base64urlEncode(arr);
+}
+
+async function connectOneDrive() {
+  if (AZURE_CLIENT_ID === 'YOUR_AZURE_CLIENT_ID') {
+    showToast('⚠ กรุณาใส่ Azure Client ID ในโค้ดก่อน หรือใช้โหมด Demo', 'error');
+    return;
+  }
+
+  // Generate PKCE code verifier + challenge
+  const codeVerifier = generateRandom(64);
+  const hashed = await sha256(codeVerifier);
+  const codeChallenge = base64urlEncode(hashed);
+
+  const state = generateRandom(16);
+  sessionStorage.setItem('pkce_verifier', codeVerifier);
+  sessionStorage.setItem('oauth_state', state);
+  sessionStorage.setItem('refresh_min', document.getElementById('refresh-interval').value);
+
+  const params = new URLSearchParams({
+    client_id:             AZURE_CLIENT_ID,
+    response_type:         'code',
+    redirect_uri:          REDIRECT_URI,
+    scope:                 SCOPES.join(' ') + ' offline_access',
+    state:                 state,
+    code_challenge:        codeChallenge,
+    code_challenge_method: 'S256',
+    prompt:                'select_account',
+    response_mode:         'query'
+  });
+
+  // Full page redirect — works in Teams iframe
+  window.location.href = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params}`;
+}
+
+async function handleAuthCallback() {
+  // ── Case 1: Authorization code returned in query string (PKCE flow) ──
+  const urlParams = new URLSearchParams(window.location.search);
+  const code  = urlParams.get('code');
+  const state = urlParams.get('state');
+  const error = urlParams.get('error');
+
+  if (error) {
+    showToast('❌ Login ล้มเหลว: ' + (urlParams.get('error_description') || error), 'error');
+    document.getElementById('setup-panel').style.display = 'block';
+    return false;
+  }
+
+  if (code) {
+    const savedState    = sessionStorage.getItem('oauth_state');
+    const codeVerifier  = sessionStorage.getItem('pkce_verifier');
+
+    if (state !== savedState) {
+      showToast('❌ State mismatch — กรุณาลองใหม่', 'error');
+      document.getElementById('setup-panel').style.display = 'block';
+      return false;
+    }
+
+    // Exchange code for token
+    history.replaceState(null, '', window.location.pathname);
+    showLoading('กำลัง Login...');
+
+    try {
+      const tokenResp = await fetch(`https://login.microsoftonline.com/common/oauth2/v2.0/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id:     AZURE_CLIENT_ID,
+          grant_type:    'authorization_code',
+          code:          code,
+          redirect_uri:  REDIRECT_URI,
+          code_verifier: codeVerifier,
+        })
+      });
+
+      const tokenData = await tokenResp.json();
+      if (tokenData.error) throw new Error(tokenData.error_description || tokenData.error);
+
+      accessToken = tokenData.access_token;
+
+      // Cache token expiry
+      const expiresAt = Date.now() + (tokenData.expires_in - 60) * 1000;
+      sessionStorage.setItem('access_token', accessToken);
+      sessionStorage.setItem('token_expires', expiresAt);
+      if (tokenData.refresh_token) sessionStorage.setItem('refresh_token', tokenData.refresh_token);
+
+      refreshInterval = parseInt(sessionStorage.getItem('refresh_min') || '5');
+      loadFromOneDrive(WB_URL_EMS, SHEET_NAME_EMS);
+      loadAmbFromOneDrive(WB_URL_AMB);
+      return true;
+
+    } catch (e) {
+      hideLoading();
+      showToast('❌ Token exchange ล้มเหลว: ' + e.message, 'error');
+      document.getElementById('setup-panel').style.display = 'block';
+      return false;
+    }
+  }
+
+  // ── Case 2: Cached token still valid ──
+  const cached    = sessionStorage.getItem('access_token');
+  const expiresAt = parseInt(sessionStorage.getItem('token_expires') || '0');
+  if (cached && Date.now() < expiresAt) {
+    accessToken = cached;
+    refreshInterval = parseInt(sessionStorage.getItem('refresh_min') || '5');
+    loadFromOneDrive(WB_URL_EMS, SHEET_NAME_EMS);
+    loadAmbFromOneDrive(WB_URL_AMB);
+    return true;
+  }
+
+  // ── Case 3: No token — show setup ──
+  return false;
+}
+
+// Refresh expired token using refresh_token
+async function refreshAccessToken() {
+  const refreshToken = sessionStorage.getItem('refresh_token');
+  if (!refreshToken) { showSetup(); return; }
+  try {
+    const resp = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id:     AZURE_CLIENT_ID,
+        grant_type:    'refresh_token',
+        refresh_token: refreshToken,
+        scope:         SCOPES.join(' ') + ' offline_access',
+      })
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    accessToken = data.access_token;
+    const expiresAt = Date.now() + (data.expires_in - 60) * 1000;
+    sessionStorage.setItem('access_token', accessToken);
+    sessionStorage.setItem('token_expires', expiresAt);
+    if (data.refresh_token) sessionStorage.setItem('refresh_token', data.refresh_token);
+  } catch(e) {
+    showSetup();
+  }
+}
+
+// ─── GRAPH API ────────────────────────────────────────
+async function buildGraphUrl(wbUrl, sheetName) {
+  // SharePoint / OneDrive for Business → use sharing link encoding
+  if (wbUrl.includes('sharepoint.com') || wbUrl.includes('onedrive.live.com') || wbUrl.includes('/_layouts/')) {
+    // Encode URL as unpadded base64url for Graph shares endpoint
+    const encoded = btoa(wbUrl)
+      .replace(/=+$/, '')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_');
+    return `https://graph.microsoft.com/v1.0/shares/u!${encoded}/driveItem/workbook/worksheets/${encodeURIComponent(sheetName)}/usedRange`;
+  } else {
+    // Personal OneDrive — extract file ID from URL
+    const match = wbUrl.match(/resid=([^&]+)/i) || wbUrl.match(/id=([^&]+)/i);
+    if (!match) throw new Error('ไม่สามารถแยก File ID จาก URL ได้');
+    return `https://graph.microsoft.com/v1.0/me/drive/items/${match[1]}/workbook/worksheets/${encodeURIComponent(sheetName)}/usedRange`;
+  }
+}
+
+async function loadAmbFromOneDrive(wbUrlAmb) {
+  try {
+    const apiUrl = await buildGraphUrl(wbUrlAmb, 'Data Input');
+    const resp = await fetch(apiUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data.values && data.values.length > 1) processAmbData(data.values);
+  } catch (e) {
+    console.warn('Ambulance data load failed:', e);
+  }
+}
+
+async function loadFromOneDrive(wbUrl, sheetName) {
+  // Refresh token if expired
+  const expiresAt = parseInt(sessionStorage.getItem('token_expires') || '0');
+  if (accessToken && Date.now() > expiresAt) await refreshAccessToken();
+
+  showLoading('กำลังเชื่อมต่อ OneDrive...');
+  try {
+    const apiUrl = await buildGraphUrl(wbUrl, sheetName);
+    const resp = await fetch(apiUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!resp.ok) throw new Error(`Graph API error: ${resp.status}`);
+    const data = await resp.json();
+    const rows = data.values;
+    if (!rows || rows.length < 2) throw new Error('ไม่พบข้อมูลในชีท');
+    processData(rows);
+    setConnectionStatus('เชื่อมต่อแล้ว', 'ok');
+    showToast('✓ โหลดข้อมูลสำเร็จ', 'success');
+    startAutoRefresh(() => {
+      loadFromOneDrive(WB_URL_EMS, SHEET_NAME_EMS);
+      loadAmbFromOneDrive(WB_URL_AMB);
+    });
+  } catch (e) {
+    hideLoading();
+    showToast('❌ ' + e.message, 'error');
+    setConnectionStatus('เชื่อมต่อไม่ได้', 'error');
+    console.error(e);
+  }
+}
+
+// ─── DEMO DATA ────────────────────────────────────────
+function loadDemoData() {
+  isDemo = true;
+  document.getElementById('setup-panel').style.display = 'none';
+  showLoading('กำลังโหลดข้อมูลตัวอย่าง...');
+  setTimeout(() => {
+    const rows = generateDemoData();
+    processData(rows);
+    // Also load ambulance demo data
+    const ambDemoRows = generateAmbDemoData();
+    processAmbData(ambDemoRows);
+    setConnectionStatus('Demo Mode', 'ok');
+    showToast('✓ โหลดข้อมูลตัวอย่างแล้ว', 'success');
+    refreshInterval = parseInt(document.getElementById('refresh-interval').value || '5');
+    startAutoRefresh(() => {
+      const r = generateDemoData(); processData(r);
+      const ra = generateAmbDemoData(); processAmbData(ra);
+    });
+  }, 800);
+}
+
+function generateDemoData() {
+  const header = ['ว/ด/ป','Amb_Code','เวลารับแจ้ง','เวลาออก','ถึงจุดเกิดเหตุ','ออกจากจุดเกิดเหตุ','เวลาถึง รพ.','สถานะ','พื้นที่เกิดเหตุ','สถานที่เกิดเหตุ','หน่วยงานที่ออกรับ','Ambulance','นำส่ง รพ','ประเภทผู้ป่วย','ประเภทอุบัติเหตุ','เพศ','ไทย-ต่างชาติ','ผู้แจ้ง','BSH- HN','ชื่อ-นามสกุล','จำนวนผู้บาดเจ็บ','อาการผู้ป่วย','เจ้าหน้าที่'];
+  const units = ['รพ.ไทยอินเตอร์','กู้ภัย-บ้านใต้','กู้ภัย-บ่อผุด','กู้ภัย-สระเกศ','รพ.วัฒนแพทย์สมุย','กู้ภัย-ปลายแหลม','รพ.กรุงเทพสมุย','กู้ชีพ-หน้าเมือง','กู้ภัย-ศิลางู','รพ.เกาะสมุย'];
+  const hosps = ['รพ.ไทยอินเตอร์','รพ.เกาะสมุย','รพ.กรุงเทพสมุย','รพ.วัฒนแพทย์สมุย','รพ.สมุยอินเตอร์'];
+  const areas = ['เฉวง','ปลายแหลม','แม่น้ำ','ละไม','บ่อผุด','เชิงมนต์','บ้านใต้','สระเกศ','บางปอ'];
+  const statuses = ['ถึงโรงพยาบาล','ถึงโรงพยาบาล','ถึงโรงพยาบาล','ถึงโรงพยาบาล','ออกรับ','ออกจุดเกิดเหตุ','รับแจ้ง','ปิดงาน'];
+  const types = ['ผู้ป่วย/ผู้บาดเจ็บ','ผู้ป่วย/ผู้บาดเจ็บ','อุบัติเหตุ/จราจร','อุบัติเหตุ/จราจร','อุบัติเหตุ/จราจร'];
+  const staff = ['นพกร','ธีรพงษ์','ปฐมพงษ์','เดชฤทธิ์','นันทพงษ์'];
+  const genders = ['ชาย','หญิง','ชาย/หญิง'];
+  const segments = ['ไทย','ต่างชาติ','ต่างด้าว'];
+
+  const today = new Date();
+  const rows = [header];
+
+  // Generate historical data (Jan-today)
+  for (let d = 0; d < 70; d++) {
+    const dt = new Date(today);
+    dt.setDate(dt.getDate() - d);
+    const count = Math.floor(Math.random() * 12) + 4;
+    for (let i = 0; i < count; i++) {
+      const h = Math.floor(Math.random() * 24);
+      const m = Math.floor(Math.random() * 60);
+      const pad = n => String(n).padStart(2,'0');
+      const dateStr = `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
+      const status = statuses[Math.floor(Math.random() * statuses.length)];
+      rows.push([
+        dateStr, `${pad(dt.getDate())}${pad(dt.getMonth()+1)}${String(dt.getFullYear()).slice(-2)}-${pad(i+1)}`,
+        `${pad(h)}:${pad(m)}:00`, `${pad(h)}:${pad(m+3)}`, `${pad(h)}:${pad(m+8)}`,
+        `${pad(h)}:${pad(m+18)}`, `${pad(h)}:${pad(m+25)}`,
+        status,
+        areas[Math.floor(Math.random() * areas.length)],
+        'สถานที่ ' + (i+1),
+        units[Math.floor(Math.random() * units.length)], 'SAMUI-' + (60 + Math.floor(Math.random()*10)),
+        hosps[Math.floor(Math.random() * hosps.length)],
+        types[Math.floor(Math.random() * types.length)],
+        Math.random() > 0.5 ? 'จยย.ล้มเอง' : '',
+        genders[Math.floor(Math.random() * genders.length)],
+        segments[Math.floor(Math.random() * segments.length)],
+        'ศูนย์กู้ภัยสมุย', '', '',
+        Math.floor(Math.random() * 3) + 1,
+        'อาการบาดเจ็บ',
+        staff[Math.floor(Math.random() * staff.length)]
+      ]);
+    }
+  }
+  return rows;
+}
+
+// ─── PROCESS DATA ─────────────────────────────────────
+function processData(rows) {
+  const header = rows[0];
+  const idx = {};
+  header.forEach((h, i) => { idx[h] = i; });
+
+  allRows = rows.slice(1).filter(r => r[0] && r[0] !== '').map(r => ({
+    date:     r[idx['ว/ด/ป']] || '',
+    ambCode:  r[idx['Amb_Code']] || '',
+    timeIn:   r[idx['เวลารับแจ้ง']] || '',
+    status:   r[idx['สถานะ']] || '',
+    area:     r[idx['พื้นที่เกิดเหตุ']] || '',
+    place:    r[idx['สถานที่เกิดเหตุ']] || '',
+    unit:     r[idx['หน่วยงานที่ออกรับ']] || '',
+    amb:      r[idx['Ambulance']] || '',
+    hosp:     r[idx['นำส่ง รพ']] || '',
+    type:     r[idx['ประเภทผู้ป่วย']] || '',
+    gender:   r[idx['เพศ']] || '',
+    segment:  r[idx['ไทย-ต่างชาติ']] || '',
+    injured:  parseFloat(r[idx['จำนวนผู้บาดเจ็บ']]) || 0,
+    symptom:  r[idx['อาการผู้ป่วย']] || '',
+    staff:    r[idx['เจ้าหน้าที่']] || ''
+  }));
+
+  filteredRows = [...allRows];
+  renderAll();
+  hideLoading();
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('tab-nav').style.display = 'flex';
+}
+
+function renderAll() {
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const thisMonth = todayStr.substr(0,7);
+
+  const todayRows = allRows.filter(r => String(r.date).includes(todayStr));
+  const monthRows = allRows.filter(r => String(r.date).includes(thisMonth));
+  const delivered = todayRows.filter(r => r.status && r.status.includes('ถึงโรงพยาบาล'));
+  const active    = todayRows.filter(r => r.status && ['ออกรับ','รับแจ้ง','ออกจุดเกิดเหตุ'].includes(r.status));
+  const accident  = todayRows.filter(r => r.type === 'อุบัติเหตุ/จราจร');
+  const totalInjured = todayRows.reduce((a, b) => a + b.injured, 0);
+
+  setText('kpi-today',     todayRows.length);
+  setText('kpi-delivered', delivered.length);
+  setText('kpi-active',    active.length);
+  setText('kpi-accident',  accident.length);
+  setText('kpi-injured',   totalInjured);
+  setText('kpi-month',     monthRows.length);
+
+  renderTable(filteredRows.slice(-100).reverse());
+  renderUnitChart(todayRows);
+  renderHospChart(todayRows);
+  renderTypeDonut(todayRows);
+  renderHourChart(todayRows);
+
+  document.getElementById('table-count').textContent = filteredRows.length + ' รายการ';
+}
+
+function setText(id, val) { document.getElementById(id).textContent = val; }
+
+// ─── TABLE ────────────────────────────────────────────
+function renderTable(rows) {
+  const statusClass = {
+    'ถึงโรงพยาบาล': 'badge-done',
+    'ถึงโรงพยาบาล/จบงาน': 'badge-done',
+    'ออกรับ': 'badge-warn',
+    'รับแจ้ง': 'badge-warn',
+    'ออกจุดเกิดเหตุ': 'badge-active',
+    'ปิดงาน': 'badge-closed',
+    'สนับสนุน': 'badge-closed',
+  };
+
+  const tbody = document.getElementById('table-body');
+  tbody.innerHTML = rows.map(r => {
+    const sc = statusClass[r.status] || 'badge-closed';
+    const dateDisp = typeof r.date === 'string' ? r.date.split(' ')[0] : String(r.date).substr(0,10);
+    return `<tr>
+      <td class="monospace">${dateDisp}</td>
+      <td class="monospace" style="color:var(--accent2)">${r.ambCode || '—'}</td>
+      <td class="monospace">${r.timeIn || '—'}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;" title="${r.place}">${r.area} ${r.place ? '· ' + r.place : ''}</td>
+      <td style="color:var(--text-dim)">${r.unit || '—'}</td>
+      <td>${r.hosp || '—'}</td>
+      <td style="font-size:0.7rem;color:var(--text-dim)">${r.type || '—'}</td>
+      <td><span class="badge ${sc}">${r.status || '—'}</span></td>
+      <td style="color:var(--accent)">${r.staff || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterTable() {
+  const q = document.getElementById('search-box').value.toLowerCase();
+  filteredRows = q
+    ? allRows.filter(r => Object.values(r).some(v => String(v).toLowerCase().includes(q)))
+    : [...allRows];
+  document.getElementById('table-count').textContent = filteredRows.length + ' รายการ';
+  renderTable(filteredRows.slice(-100).reverse());
+}
+
+// ─── BAR CHARTS ──────────────────────────────────────
+function renderUnitChart(rows) {
+  const counts = {};
+  rows.forEach(r => { if (r.unit) counts[r.unit] = (counts[r.unit] || 0) + 1; });
+  renderBarChart('unit-chart', counts, 8);
+}
+
+function renderHospChart(rows) {
+  const counts = {};
+  rows.forEach(r => { if (r.hosp) counts[r.hosp] = (counts[r.hosp] || 0) + 1; });
+  renderBarChart('hosp-chart', counts, 6, 'green');
+}
+
+function renderBarChart(containerId, counts, limit = 8, colorClass = '') {
+  const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, limit);
+  const max = sorted[0]?.[1] || 1;
+  const container = document.getElementById(containerId);
+  container.innerHTML = sorted.map(([name, count]) => `
+    <div class="bar-item">
+      <div class="bar-label"><span>${name}</span><span>${count}</span></div>
+      <div class="bar-track">
+        <div class="bar-fill ${colorClass}" style="width:${(count/max*100).toFixed(1)}%"></div>
+      </div>
+    </div>
+  `).join('') || '<div style="padding:8px;color:var(--text-dim);font-size:0.78rem;">ยังไม่มีข้อมูลวันนี้</div>';
+}
+
+// ─── DONUT ────────────────────────────────────────────
+function renderTypeDonut(rows) {
+  const counts = {};
+  rows.forEach(r => { if (r.type) counts[r.type] = (counts[r.type] || 0) + 1; });
+  const entries = Object.entries(counts);
+  const total = entries.reduce((a, b) => a + b[1], 0) || 1;
+  const colors = ['#00d4ff','#00ff9d','#ffb800','#ff4444','#a78bfa','#fb923c'];
+
+  let offset = 0;
+  const segments = entries.map(([name, count], i) => {
+    const pct = count / total;
+    const angle = pct * 360;
+    const startAngle = offset;
+    offset += angle;
+    return { name, count, pct, startAngle, angle, color: colors[i % colors.length] };
+  });
+
+  const svgArcs = segments.map(s => {
+    const r = 50, cx = 65, cy = 65;
+    const start = polarToXY(cx, cy, r, s.startAngle - 90);
+    const end = polarToXY(cx, cy, r, s.startAngle + s.angle - 90);
+    const large = s.angle > 180 ? 1 : 0;
+    if (s.pct >= 0.99) return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="18"/>`;
+    return `<path d="M${cx},${cy} L${start.x},${start.y} A${r},${r} 0 ${large},1 ${end.x},${end.y} Z" fill="${s.color}" opacity="0.85"/>`;
+  }).join('');
+
+  const container = document.getElementById('type-donut');
+  container.innerHTML = `
+    <svg class="donut-svg" viewBox="0 0 130 130">
+      <circle cx="65" cy="65" r="30" fill="var(--bg-card)"/>
+      ${svgArcs}
+      <text x="65" y="62" text-anchor="middle" fill="var(--text-main)" font-size="12" font-family="Share Tech Mono">${total}</text>
+      <text x="65" y="76" text-anchor="middle" fill="var(--text-dim)" font-size="8">เคส</text>
+    </svg>
+    <div class="donut-legend">
+      ${segments.map(s => `
+        <div class="legend-item">
+          <div class="legend-dot" style="background:${s.color}"></div>
+          <span style="flex:1">${s.name}</span>
+          <span style="color:var(--text-main);font-weight:600">${s.count}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function polarToXY(cx, cy, r, deg) {
+  const rad = deg * Math.PI / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+
+// ─── HOURLY CHART ────────────────────────────────────
+function renderHourChart(rows) {
+  const hours = Array(24).fill(0);
+  rows.forEach(r => {
+    if (r.timeIn) {
+      const h = parseInt(String(r.timeIn).split(':')[0]);
+      if (!isNaN(h) && h >= 0 && h < 24) hours[h]++;
+    }
+  });
+  const max = Math.max(...hours, 1);
+  const container = document.getElementById('hour-chart');
+  const barWidth = 100 / 24;
+
+  container.innerHTML = `
+    <div style="display:flex;align-items:flex-end;height:80px;gap:1px;">
+      ${hours.map((v, h) => {
+        const ht = (v / max * 100).toFixed(1);
+        const isNight = h < 6 || h >= 22;
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;cursor:default;" title="${h}:00 — ${v} เคส">
+          <div style="width:100%;background:${isNight ? 'rgba(0,212,255,0.3)' : 'rgba(0,255,157,0.5)'};
+            height:${ht}%;border-radius:2px 2px 0 0;min-height:2px;
+            transition:height 1s;box-shadow:0 0 4px ${isNight ? 'rgba(0,212,255,0.3)' : 'rgba(0,255,157,0.3)'}"></div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:6px;">
+      ${[0,6,12,18,23].map(h => `<span style="font-size:0.65rem;color:var(--text-dim);font-family:'Share Tech Mono'">${String(h).padStart(2,'0')}:00</span>`).join('')}
+    </div>
+  `;
+}
+
+// ─── AUTO REFRESH ─────────────────────────────────────
+let autoRefreshFn = null;
+let progressAnimId = null;
+
+function startAutoRefresh(fn) {
+  autoRefreshFn = fn;
+  stopProgress();
+  startProgress();
+}
+
+function startProgress() {
+  const totalMs = refreshInterval * 60 * 1000;
+  const startTime = Date.now();
+
+  function tick() {
+    const elapsed = Date.now() - startTime;
+    const pct = Math.min((elapsed / totalMs) * 100, 100);
+    document.getElementById('refresh-progress').style.width = pct + '%';
+
+    if (elapsed >= totalMs) {
+      document.getElementById('refresh-progress').style.width = '0%';
+      if (autoRefreshFn) autoRefreshFn();
+      startProgress();
+    } else {
+      progressAnimId = requestAnimationFrame(tick);
+    }
+  }
+  progressAnimId = requestAnimationFrame(tick);
+}
+
+function stopProgress() {
+  if (progressAnimId) cancelAnimationFrame(progressAnimId);
+}
+
+function manualRefresh() {
+  if (!autoRefreshFn) { showToast('ยังไม่ได้เชื่อมต่อข้อมูล', 'error'); return; }
+  stopProgress();
+  document.getElementById('refresh-progress').style.width = '0%';
+  showLoading('กำลังรีเฟรชข้อมูล...');
+  autoRefreshFn();
+  setTimeout(startProgress, 500);
+}
+
+// ─── UI UTILS ─────────────────────────────────────────
+function showLoading(msg) {
+  document.getElementById('loading-msg').textContent = msg || 'กำลังโหลด...';
+  document.getElementById('loading-overlay').style.display = 'flex';
+}
+function hideLoading() {
+  document.getElementById('loading-overlay').style.display = 'none';
+}
+
+function showToast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  setTimeout(() => { el.className = ''; }, 4000);
+}
+
+function setConnectionStatus(label, state) {
+  document.getElementById('conn-label').textContent = label;
+  const dot = document.getElementById('conn-dot');
+  dot.className = 'status-dot' + (state === 'ok' ? '' : state === 'error' ? ' error' : ' warn');
+}
+
+// ─── TAB SWITCHING ────────────────────────────────────
+function switchTab(id) {
+  document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const idx = id === 'tab-ems' ? 0 : 1;
+  document.querySelectorAll('.tab-btn')[idx].classList.add('active');
+}
+
+// ─── FLEET DATA (static vehicle registry from Ambulance.xlsx) ─
+const FLEET_REGISTRY = [
+  { code: 'SAMUI-54', type: 'Ambulance', brand: 'Toyota', model: 'Commuter', year: 2011, lastMA: '15/01/2569', status: 'EOS' },
+  { code: 'SAMUI-62', type: 'Ambulance', brand: 'Toyota', model: 'Commuter', year: 2019, lastMA: '16/01/2569', status: 'Ready' },
+  { code: 'SAMUI-66', type: 'Ambulance', brand: 'Toyota', model: 'Commuter', year: 2023, lastMA: '17/01/2569', status: 'Ready' },
+  { code: 'SAMUI-67', type: 'Ambulance', brand: 'Toyota', model: 'Commuter', year: 2024, lastMA: '18/01/2569', status: 'MA' },
+  { code: 'SAMUI-68', type: 'Ambulance', brand: 'Toyota', model: 'Commuter', year: 2025, lastMA: '19/01/2569', status: 'Ready' },
+];
+
+// Ambulance trip log rows (from Ambulance.xlsx Data Input)
+let ambRows = [];
+
+// ─── DEMO: AMBULANCE DATA ──────────────────────────────
+function generateAmbDemoData() {
+  const header = ['ว/ด/ป','Code','Code_Txt','AMB','พลขับ 1','พลขับ 2','ประเภทงาน','รายละเอียด','สถานที่','เวลาออก','เลขไมล์ออก','เวลาถึง','เลขไมล์ถึง','เวลากลับ','เวลาถึง รพ.','เลขไมล์ถึง รพ.','สถานะ','เจ้าหน้าที่'];
+  const ambs = ['SAMUI-62','SAMUI-66','SAMUI-67','SAMUI-68'];
+  const drivers = ['กรวิชญ์','มรุพงษ์','สุเทพ','สุรเดช','สุรศักดิ์','กรีฑา'];
+  const officers = ['นพกร','ธีรพงษ์','เดชฤทธิ์','ปฐมพงษ์','นันทพงษ์'];
+  const jobTypes = ['รับผู้ป่วย','รับผูู้บาดเจ็บ','รับ-Refer','ออกหน่วย','ส่งผู้ป่วย','รับทีมแพทย์','ส่ง-Refer','Hotel Call','สนับสนุน/กู้ชีพ/กู้ภัย'];
+  const areas = ['เฉวง','ปลายแหลม','แม่น้ำ','ละไม','บ่อผุด','บ้านใต้'];
+  const today = new Date();
+  const rows = [header];
+  let mileBase = { 'SAMUI-62': 85000, 'SAMUI-66': 42000, 'SAMUI-67': 15000, 'SAMUI-68': 8000 };
+
+  for (let d = 0; d < 70; d++) {
+    const dt = new Date(today);
+    dt.setDate(dt.getDate() - d);
+    const pad = n => String(n).padStart(2,'0');
+    const dateStr = `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
+    const count = Math.floor(Math.random() * 6) + 2;
+    for (let i = 0; i < count; i++) {
+      const amb = ambs[Math.floor(Math.random() * ambs.length)];
+      const h = Math.floor(Math.random() * 22) + 6;
+      const m = Math.floor(Math.random() * 60);
+      const dist = Math.floor(Math.random() * 25) + 5;
+      mileBase[amb] = (mileBase[amb] || 50000) + dist;
+      rows.push([
+        dateStr, '', '',
+        amb,
+        drivers[Math.floor(Math.random() * drivers.length)],
+        '',
+        jobTypes[Math.floor(Math.random() * jobTypes.length)],
+        '',
+        areas[Math.floor(Math.random() * areas.length)],
+        `${pad(h)}:${pad(m)}`,
+        mileBase[amb] - dist,
+        `${pad(h)}:${pad((m+15)%60)}`,
+        mileBase[amb],
+        `${pad(h)}:${pad((m+30)%60)}`,
+        `${pad(h)}:${pad((m+35)%60)}`,
+        mileBase[amb] + Math.floor(Math.random()*5),
+        'ถึงโรงพยาบาล/จบงาน',
+        officers[Math.floor(Math.random() * officers.length)]
+      ]);
+    }
+  }
+  return rows;
+}
+
+// ─── PROCESS AMBULANCE DATA ────────────────────────────
+function processAmbData(rows) {
+  const header = rows[0];
+  const idx = {};
+  header.forEach((h, i) => { idx[h] = i; });
+
+  ambRows = rows.slice(1).filter(r => r[idx['AMB']]).map(r => ({
+    date:     String(r[idx['ว/ด/ป']] || ''),
+    amb:      r[idx['AMB']] || '',
+    driver:   r[idx['พลขับ 1']] || '',
+    jobType:  r[idx['ประเภทงาน']] || '',
+    place:    r[idx['สถานที่']] || '',
+    timeOut:  r[idx['เวลาออก']] || '',
+    mileOut:  parseFloat(r[idx['เลขไมล์ออก']]) || 0,
+    mileIn:   parseFloat(r[idx['เลขไมล์ถึง รพ.']]) || parseFloat(r[idx['เลขไมล์ถึง']]) || 0,
+    status:   r[idx['สถานะ']] || '',
+    officer:  r[idx['เจ้าหน้าที่']] || '',
+  }));
+
+  renderFleet();
+  document.getElementById('fleet-updated').textContent = 'อัปเดต ' + new Date().toLocaleTimeString('th-TH');
+}
+
+// ─── RENDER FLEET ──────────────────────────────────────
+function renderFleet() {
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const thisMonth = todayStr.substr(0, 7);
+
+  const todayAmb   = ambRows.filter(r => r.date.includes(todayStr));
+  const monthAmb   = ambRows.filter(r => r.date.includes(thisMonth));
+
+  // KPIs
+  const readyCnt = FLEET_REGISTRY.filter(v => v.status === 'Ready').length;
+  const maCnt    = FLEET_REGISTRY.filter(v => v.status === 'MA').length;
+  const eosCnt   = FLEET_REGISTRY.filter(v => v.status === 'EOS').length;
+  setText('amb-kpi-ready', readyCnt);
+  setText('amb-kpi-ma',    maCnt);
+  setText('amb-kpi-eos',   eosCnt);
+  setText('amb-kpi-today', todayAmb.length);
+
+  // Vehicle status cards
+  renderAmbStatusCards(todayAmb);
+
+  // Cases per vehicle (today)
+  renderAmbCasesChart('amb-cases-chart', todayAmb, '');
+
+  // Cases per vehicle (month)
+  renderAmbCasesChart('amb-month-chart', monthAmb, 'green');
+
+  // Job type chart (today, fallback to month)
+  renderJobTypeChart(todayAmb.length > 0 ? todayAmb : monthAmb);
+
+  // Log table (last 60 rows, most recent first)
+  renderAmbLogTable([...ambRows].reverse().slice(0, 60));
+  setText('amb-log-count', ambRows.length + ' รายการ');
+}
+
+function renderAmbStatusCards(todayRows) {
+  const casesPerAmb = {};
+  todayRows.forEach(r => { casesPerAmb[r.amb] = (casesPerAmb[r.amb] || 0) + 1; });
+
+  const grid = document.getElementById('amb-status-grid');
+  grid.innerHTML = FLEET_REGISTRY.map(v => {
+    const sc = v.status === 'Ready' ? 'ready' : v.status === 'MA' ? 'ma' : 'eos';
+    const statusCls = v.status === 'Ready' ? 'status-ready' : v.status === 'MA' ? 'status-ma' : 'status-eos';
+    const statusTh  = v.status === 'Ready' ? 'พร้อม' : v.status === 'MA' ? 'ซ่อมบำรุง' : 'หมดอายุ';
+    const cases = casesPerAmb[v.code] || 0;
+
+    // SVG ambulance icon (since no actual images in demo)
+    const ambIcon = `<svg width="80" height="52" viewBox="0 0 80 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="16" width="54" height="26" rx="3" fill="#0a1e30" stroke="#0e3050" stroke-width="1.5"/>
+      <rect x="58" y="22" width="18" height="20" rx="2" fill="#0d2438" stroke="#0e3050" stroke-width="1.5"/>
+      <rect x="6" y="18" width="22" height="14" rx="1" fill="#071522"/>
+      <rect x="60" y="24" width="14" height="10" rx="1" fill="#071522"/>
+      <circle cx="18" cy="44" r="6" fill="#0a1e30" stroke="${sc==='ready'?'#00ff9d':sc==='ma'?'#ffb800':'#ff4444'}" stroke-width="2"/>
+      <circle cx="58" cy="44" r="6" fill="#0a1e30" stroke="${sc==='ready'?'#00ff9d':sc==='ma'?'#ffb800':'#ff4444'}" stroke-width="2"/>
+      <circle cx="18" cy="44" r="2.5" fill="${sc==='ready'?'#00ff9d':sc==='ma'?'#ffb800':'#ff4444'}"/>
+      <circle cx="58" cy="44" r="2.5" fill="${sc==='ready'?'#00ff9d':sc==='ma'?'#ffb800':'#ff4444'}"/>
+      <rect x="30" y="20" width="2" height="8" rx="1" fill="#00d4ff"/>
+      <rect x="27" y="23" width="8" height="2" rx="1" fill="#00d4ff"/>
+      <rect x="4" y="36" width="54" height="2" fill="${sc==='ready'?'rgba(0,255,157,0.15)':sc==='ma'?'rgba(255,184,0,0.15)':'rgba(255,68,68,0.15)'}"/>
+      <text x="40" y="12" text-anchor="middle" font-size="7" fill="#5e8aa8" font-family="monospace">${v.code}</text>
+    </svg>`;
+
+    return `<div class="amb-unit-card ${sc}">
+      ${ambIcon}
+      <div class="amb-unit-code">${v.code}</div>
+      <div class="amb-unit-status ${statusCls}">${statusTh}</div>
+      <div class="amb-unit-cases">${cases}</div>
+      <div class="amb-unit-cases-label">เคสวันนี้</div>
+      <div class="amb-unit-meta">${v.brand} ${v.model} ${v.year + 543}<br>MA ล่าสุด: ${v.lastMA}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderAmbCasesChart(containerId, rows, colorClass) {
+  const counts = {};
+  rows.forEach(r => { if (r.amb) counts[r.amb] = (counts[r.amb] || 0) + 1; });
+  // Add zeros for fleet vehicles not active today
+  FLEET_REGISTRY.forEach(v => { if (!counts[v.code]) counts[v.code] = 0; });
+  renderBarChart(containerId, counts, 10, colorClass);
+}
+
+function renderJobTypeChart(rows) {
+  const counts = {};
+  rows.forEach(r => { if (r.jobType) counts[r.jobType] = (counts[r.jobType] || 0) + 1; });
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const max = sorted[0]?.[1] || 1;
+  const colors = ['#00d4ff','#00ff9d','#ffb800','#a78bfa','#fb923c','#f472b6','#34d399','#60a5fa'];
+
+  const container = document.getElementById('amb-job-chart');
+  if (!sorted.length) {
+    container.innerHTML = '<div style="padding:8px;color:var(--text-dim);font-size:0.78rem;">ยังไม่มีข้อมูลวันนี้</div>';
+    return;
+  }
+  container.innerHTML = sorted.map(([name, count], i) => `
+    <div class="job-item">
+      <div class="job-label"><span>${name}</span><span>${count}</span></div>
+      <div class="job-track">
+        <div class="job-fill" style="width:${(count/max*100).toFixed(1)}%;background:${colors[i%colors.length]};opacity:0.8;"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderAmbLogTable(rows) {
+  const tbody = document.getElementById('amb-log-body');
+  const allMiles = rows.map(r => r.mileIn - r.mileOut).filter(d => d > 0);
+  const maxDist = Math.max(...allMiles, 1);
+
+  tbody.innerHTML = rows.map(r => {
+    const dist = r.mileIn > r.mileOut ? r.mileIn - r.mileOut : null;
+    const dateDisp = r.date.substr(0, 10);
+    const distHtml = dist
+      ? `<div class="amb-mileage-bar">
+           <span style="font-family:'Share Tech Mono',monospace;color:var(--accent2);min-width:28px">${dist}</span>
+           <div class="mile-track"><div class="mile-fill" style="width:${Math.min(dist/maxDist*100,100).toFixed(0)}%"></div></div>
+         </div>`
+      : '<span style="color:var(--text-dim)">—</span>';
+    return `<tr>
+      <td class="monospace">${dateDisp}</td>
+      <td class="monospace" style="color:var(--accent)">${r.amb}</td>
+      <td style="color:var(--text-dim)">${r.driver || '—'}</td>
+      <td style="color:var(--accent2);font-size:0.72rem">${r.jobType || '—'}</td>
+      <td style="color:var(--text-dim);max-width:100px;overflow:hidden;text-overflow:ellipsis;">${r.place || '—'}</td>
+      <td class="monospace">${r.timeOut || '—'}</td>
+      <td>${distHtml}</td>
+      <td style="color:var(--accent)">${r.officer || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── INIT ──────────────────────────────────────────────
+(async function init() {
+  const handled = await handleAuthCallback();
+  if (!handled) {
+    document.getElementById('setup-panel').style.display = 'block';
+  }
+})();
+</script>
+</body>
+</html>
